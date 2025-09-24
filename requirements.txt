@@ -1,0 +1,6 @@
+streamlit>=1.29
+duckdb>=1.0.0
+pandas>=2.2
+pyproj>=3.6
+folium>=0.15
+streamlit-folium>=0.20
