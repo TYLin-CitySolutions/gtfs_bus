@@ -8,7 +8,8 @@ from pyproj import Transformer
 import folium
 from streamlit_folium import st_folium
 
-DB_PATH = "mta_gtfs.duckdb"
+from pathlib import Path
+DB_PATH = str(Path(__file__).with_name("data") / "mta_gtfs.duckdb")
 
 # ---------- helpers ----------
 def to_sec(hms: str) -> int:
