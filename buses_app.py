@@ -178,13 +178,12 @@ with colB:
         lon = click["lng"] if click else st.session_state.clicked_lon
         st.session_state["sites"].append({
             "name": site_name,
-            "lat": st.session_state.clicked_lat,
-            "lon": st.session_state.clicked_lon,
-            "radius_ft": radius_ft,
+            "lat": float(lat),
+            "lon": float(lon),
+            "radius_ft": int(radius_ft),
         })
 with colC:
     # ---- list selected points
-    import pandas as pd
     st.write("**Selected sites**")
 
     sites = st.session_state.get("sites", [])
