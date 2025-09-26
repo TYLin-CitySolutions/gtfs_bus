@@ -1,6 +1,10 @@
-streamlit>=1.29
-duckdb>=1.0.0
-pandas>=2.2
-pyproj>=3.6
-folium>=0.15
-streamlit-folium>=0.20
+streamlit==1.36.0
+duckdb==1.0.0
+pandas==2.2.2
+pyproj==3.6.1
+pyarrow==16.1.0
+requests==2.32.3
+pyyaml==6.0.2
+folium==0.15.1
+streamlit-folium==0.20.0
+msal==1.29.0         # only used if you pull from SharePoint via Graph

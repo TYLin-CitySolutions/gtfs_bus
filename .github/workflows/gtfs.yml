@@ -1,0 +1,56 @@
+name: Build & Publish GTFS Parquet
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 9 1 */4 *"   # quarterly; tweak as you like
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: python -m pip install -r requirements.txt
+
+      # Build per-feed Parquet into parquet/<table>/<feed>.parquet
+      - name: Run ingest
+        # env:
+          # TENANT_ID: ${{ secrets.TENANT_ID }}           # only if you pull via Graph
+          # CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          # CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+        run: python ingest/ingest_gtfs.py
+
+      # IMPORTANT GITHUB PAGES GOTCHA:
+      # HTTP servers (like Pages) don't support wildcards for listing folders.
+      # Create ONE combined file per table so your app can read a single URL.
+      - name: Combine Parquet into single files
+        run: |
+          python - <<'PY'
+          import duckdb, os
+          os.makedirs('parquet_combined', exist_ok=True)
+          con = duckdb.connect()
+          for tbl in ['dim_stops','dim_trips','dim_routes','calendar_base','fact_stop_events']:
+              src = f"parquet/{tbl}/*.parquet"
+              dst = f"parquet_combined/{tbl}.parquet"
+              con.execute(f"COPY (SELECT * FROM read_parquet('{src}')) TO '{dst}' (FORMAT PARQUET, COMPRESSION 'ZSTD');")
+          print("Wrote combined files to parquet_combined/")
+          PY
+
+      # Publish combined files to GitHub Pages
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with: { path: 'parquet_combined' }
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
