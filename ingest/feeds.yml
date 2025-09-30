@@ -3,22 +3,22 @@ feeds:
     # source: file
     # url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/gtfs_bus_data/gtfs_m.zip"
     source: url
-    url: 'https://tylin1.sharepoint.com/:u:/r/teams/SSCDataAnalytics/Shared%20Documents/General/Tools/data/gtfs_bus_data/gtfs_m.zip?csf=1&web=1&e=aZGBnk'
+    url: 'https://tylin1-my.sharepoint.com/:u:/g/personal/amy_boncelet_tylin_com/EdEm1VQ1pt1ImYumD1tWSUkBhowqOPCBBMAmrj3BlShzug?e=MWhdNr'
   - id: nyct-brooklyn
     source: url
-    url: 'https://tylin1.sharepoint.com/:u:/r/teams/SSCDataAnalytics/Shared%20Documents/General/Tools/data/gtfs_bus_data/gtfs_b.zip?csf=1&web=1&e=vxErFs'
+    url: 'https://tylin1-my.sharepoint.com/:u:/g/personal/amy_boncelet_tylin_com/ET-W9V1HadFJkXOlyZFJ9jIBnyaQMg4shU5bgCuMCu5Vfw?e=WclIU3'
   - id: nyct-queens
     source: url
-    url: 'https://tylin1.sharepoint.com/:u:/r/teams/SSCDataAnalytics/Shared%20Documents/General/Tools/data/gtfs_bus_data/gtfs_q.zip?csf=1&web=1&e=uPRoHc'
+    url: 'https://tylin1-my.sharepoint.com/:u:/g/personal/amy_boncelet_tylin_com/EXgAzhHcL2xBsOn0CYV4u3ABcPOnsIjQbkowTnk5iLC0tg?e=ZF7EJv'
   - id: nyct-bronx
     source: url
-    url: 'https://tylin1.sharepoint.com/:u:/r/teams/SSCDataAnalytics/Shared%20Documents/General/Tools/data/gtfs_bus_data/gtfs_bx.zip?csf=1&web=1&e=HSDxYL'
+    url: 'https://tylin1-my.sharepoint.com/:u:/g/personal/amy_boncelet_tylin_com/EV9QMEKMCGJLkFAPqIUDeUsB6tvn31X2SCtIB-JNUatBdw?e=M7SIKF'
   - id: nyct-si
     source: url
-    url: 'https://tylin1.sharepoint.com/:u:/r/teams/SSCDataAnalytics/Shared%20Documents/General/Tools/data/gtfs_bus_data/gtfs_si.zip?csf=1&web=1&e=SGLEL7'
+    url: 'https://tylin1-my.sharepoint.com/:u:/g/personal/amy_boncelet_tylin_com/EXSD70f1bhdBo72yZLZgnCgBUVolKYHajjCjNFxCn1vorA?e=RnJcb3'
   - id: nyct-busco
     source: url
-    url: 'https://tylin1.sharepoint.com/:u:/r/teams/SSCDataAnalytics/Shared%20Documents/General/Tools/data/gtfs_bus_data/gtfs_busco.zip?csf=1&web=1&e=d8pLWH'
+    url: 'https://tylin1-my.sharepoint.com/:u:/g/personal/amy_boncelet_tylin_com/EWpHFWzlNndGjXFvswCMcRABvfWIrBlD2FVCdIOY5C9e-w?e=DQmCZx'
   # - id: mta-bus-company
   #   source: graph
   #   site_id: "YOUR_SITE_ID"
