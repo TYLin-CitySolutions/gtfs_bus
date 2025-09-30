@@ -1,22 +1,24 @@
 feeds:
-  - id: mta-nyct-bus-manhattan
-    source: file
-    url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/gtfs_bus_data/gtfs_m.zip"
-  - id: mta-nyct-bus-brooklyn
-    source: file
-    url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/gtfs_bus_data/gtfs_b.zip"
-  - id: mta-nyct-bus-queens
-    source: file
-    url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/gtfs_bus_data/gtfs_q.zip"
-  - id: mta-nyct-bus-bronx
-    source: file
-    url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/gtfs_bus_data/gtfs_bx.zip"
-  - id: mta-nyct-bus-si
-    source: file
-    url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/gtfs_bus_data/gtfs_si.zip"
-  - id: mta-nyct-bus-busco
-    source: file
-    url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/gtfs_bus_data/gtfs_busco.zip"
+  - id: nyct-manhattan
+    # source: file
+    # url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/gtfs_bus_data/gtfs_m.zip"
+    source: url
+    url: 'https://tylin1.sharepoint.com/:u:/r/teams/SSCDataAnalytics/Shared%20Documents/General/Tools/data/gtfs_bus_data/gtfs_m.zip?csf=1&web=1&e=aZGBnk'
+  - id: nyct-brooklyn
+    source: url
+    url: 'https://tylin1.sharepoint.com/:u:/r/teams/SSCDataAnalytics/Shared%20Documents/General/Tools/data/gtfs_bus_data/gtfs_b.zip?csf=1&web=1&e=vxErFs'
+  - id: nyct-queens
+    source: url
+    url: 'https://tylin1.sharepoint.com/:u:/r/teams/SSCDataAnalytics/Shared%20Documents/General/Tools/data/gtfs_bus_data/gtfs_q.zip?csf=1&web=1&e=uPRoHc'
+  - id: nyct-bronx
+    source: url
+    url: 'https://tylin1.sharepoint.com/:u:/r/teams/SSCDataAnalytics/Shared%20Documents/General/Tools/data/gtfs_bus_data/gtfs_bx.zip?csf=1&web=1&e=HSDxYL'
+  - id: nyct-si
+    source: url
+    url: 'https://tylin1.sharepoint.com/:u:/r/teams/SSCDataAnalytics/Shared%20Documents/General/Tools/data/gtfs_bus_data/gtfs_si.zip?csf=1&web=1&e=SGLEL7'
+  - id: nyct-busco
+    source: url
+    url: 'https://tylin1.sharepoint.com/:u:/r/teams/SSCDataAnalytics/Shared%20Documents/General/Tools/data/gtfs_bus_data/gtfs_busco.zip?csf=1&web=1&e=d8pLWH'
   # - id: mta-bus-company
   #   source: graph
   #   site_id: "YOUR_SITE_ID"
