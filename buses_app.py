@@ -15,8 +15,8 @@ PARQ_BASE = (
     st.secrets.get("PARQ_BASE_URL")
     or os.getenv("PARQ_BASE_URL")
     or "https://amy-boncelet.github.io/gtfs_bus"
-    # Path("parquet").resolve().as_posix()   # local dev default: ./parquet
-    r'parquet'
+    # or Path("parquet").resolve().as_posix()   # local dev default: ./parquet
+    # or r'parquet'
 )
 
 @st.cache_resource
