@@ -2,13 +2,8 @@ name: Build & Publish GTFS Parquet
 
 on:
   workflow_dispatch: {}
-  schedule:
-    - cron: "0 9 1 */4 *"   # quarterly; tweak as you like
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
+  push:
+    branches: [ main ]
 
 concurrency:
   group: "pages"
@@ -17,6 +12,10 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -25,10 +24,6 @@ jobs:
 
       # Build per-feed Parquet into parquet/<table>/<feed>.parquet
       - name: Run ingest
-        # env:
-          # TENANT_ID: ${{ secrets.TENANT_ID }}           # only if you pull via Graph
-          # CLIENT_ID: ${{ secrets.CLIENT_ID }}
-          # CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
         run: python ingest/ingest_gtfs.py
 
       # IMPORTANT GITHUB PAGES GOTCHA:
