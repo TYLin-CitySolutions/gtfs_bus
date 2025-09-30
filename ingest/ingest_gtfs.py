@@ -43,30 +43,6 @@ def load_gtfs_tables(zip_bytes: bytes) -> dict[str, pd.DataFrame]:
     return tables
 
 def build_one(feed_id: str, t: dict[str, pd.DataFrame]):
-    stops = (t["stops"]
-             .rename(columns={"stop_lat":"lat","stop_lon":"lon"})
-             .loc[t["stops"].get("location_type", 0).fillna(0).eq(0), ["stop_id","stop_name","lat","lon"]]
-             .assign(feed_id=feed_id)
-    )
-    trips = t["trips"][["trip_id","route_id","direction_id","service_id","trip_headsign"]].assign(feed_id=feed_id)
-    routes = t["routes"].assign(feed_id=feed_id)
-    cal = t["calendar"].assign(feed_id=feed_id)
-
-    st = t["stop_times"][["trip_id","stop_id","stop_sequence","arrival_time"]].copy()
-    st["arrival_sec"] = st["arrival_time"].map(to_sec)
-    fact = (st.merge(trips, on="trip_id", how="inner")
-              [["route_id","direction_id","service_id","stop_id","stop_sequence","arrival_sec","trip_id"]]
-              .assign(feed_id=feed_id)
-           )
-
-    # append-safe writes; we delete files upfront for clean rebuild
-    stops.to_parquet(OUT/"dim_stops.parquet", engine="pyarrow", compression="zstd", append=True)
-    trips.to_parquet(OUT/"dim_trips.parquet", engine="pyarrow", compression="zstd", append=True)
-    routes.to_parquet(OUT/"dim_routes.parquet", engine="pyarrow", compression="zstd", append=True)
-    cal.to_parquet(OUT/"calendar_base.parquet", engine="pyarrow", compression="zstd", append=True)
-    fact.to_parquet(OUT/"fact_stop_events.parquet", engine="pyarrow", compression="zstd", append=True)
-
-def build_one(feed_id: str, t: dict[str, pd.DataFrame]):
     OUT.mkdir(parents=True, exist_ok=True)
     for sub in ["dim_stops","dim_trips","dim_routes","calendar_base","fact_stop_events"]:
         (OUT / sub).mkdir(parents=True, exist_ok=True)
@@ -76,6 +52,15 @@ def build_one(feed_id: str, t: dict[str, pd.DataFrame]):
              .rename(columns={"stop_lat":"lat","stop_lon":"lon"})
              .assign(feed_id=feed_id)
     )
+        # ensure same datatype for each feed
+    if "stop_desc" in stops.columns:
+        stops["stop_desc"] = stops["stop_desc"].astype(str)
+    STOP_COLS = ["stop_id","stop_name","stop_desc","lat","lon",'location_type',"parent_station","zone_id","feed_id"]
+    for c in STOP_COLS:
+        if c not in stops.columns:
+            stops[c] = None
+    stops = stops[STOP_COLS]
+
     tf = Transformer.from_crs("EPSG:4326", "EPSG:2263", always_xy=True)
     x, y = tf.transform(stops["lon"].to_numpy(), stops["lat"].to_numpy())
     stops["x2263"] = x
@@ -84,6 +69,11 @@ def build_one(feed_id: str, t: dict[str, pd.DataFrame]):
     # --- trips / routes / calendar ---
     trips = t["trips"][["trip_id","route_id","direction_id","service_id","trip_headsign"]].assign(feed_id=feed_id)
     routes = t["routes"].assign(feed_id=feed_id)
+    ROUTES_COLS = ['route_id','agency_id','route_short_name','route_long_name','route_desc','route_type','route_color','route_text_color',"feed_id"]
+    for c in ROUTES_COLS:
+        if c not in routes.columns:
+            routes[c] = None
+    routes = routes[ROUTES_COLS]
     cal = t["calendar"].assign(feed_id=feed_id)
 
     # --- stop_times → fact_stop_events (arrival_sec) ---
