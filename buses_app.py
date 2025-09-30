@@ -12,9 +12,9 @@ from streamlit_folium import st_folium
 
 # read from parquet
 PARQ_BASE = (
-    # st.secrets.get("PARQ_BASE_URL")
-    # or os.getenv("PARQ_BASE_URL")
-    # or "https://amy-boncelet.github.io/gtfs_bus"
+    st.secrets.get("PARQ_BASE_URL")
+    or os.getenv("PARQ_BASE_URL")
+    or "https://amy-boncelet.github.io/gtfs_bus"
     # Path("parquet").resolve().as_posix()   # local dev default: ./parquet
     r'parquet'
 )
@@ -68,11 +68,11 @@ def buses_by_stop_route_dir_within_radius(
     sql = f"""
     WITH
     {chosen_cte}
-    dim_stops AS (SELECT * FROM read_parquet('{PARQ_BASE}/dim_stops/*.parquet')),
-    dim_trips  AS (SELECT * FROM read_parquet('{PARQ_BASE}/dim_trips/*.parquet')),
-    dim_routes AS (SELECT * FROM read_parquet('{PARQ_BASE}/dim_routes/*.parquet')),
-    calendar_base AS (SELECT * FROM read_parquet('{PARQ_BASE}/calendar_base/*.parquet')),
-    fact_stop_events AS (SELECT * FROM read_parquet('{PARQ_BASE}/fact_stop_events/*.parquet')),
+    dim_stops AS (SELECT * FROM read_parquet('{PARQ_BASE}/dim_stops.parquet')),
+    dim_trips  AS (SELECT * FROM read_parquet('{PARQ_BASE}/dim_trips.parquet')),
+    dim_routes AS (SELECT * FROM read_parquet('{PARQ_BASE}/dim_routes.parquet')),
+    calendar_base AS (SELECT * FROM read_parquet('{PARQ_BASE}/calendar_base.parquet')),
+    fact_stop_events AS (SELECT * FROM read_parquet('{PARQ_BASE}/fact_stop_events.parquet')),
     svcs AS (
       SELECT DISTINCT feed_id, service_id
       FROM calendar_base
@@ -139,11 +139,11 @@ if "sites" not in st.session_state:
     st.session_state["sites"] = []   # list of dicts: {name, lat, lon, radius_ft}
 
 con = get_con()
-# try:
-#     st.write("PARQ_BASE →", PARQ_BASE)
-#     st.write(con.execute(f"SELECT COUNT(*) n FROM read_parquet('{PARQ_BASE}/dim_routes.parquet')").fetchdf())
-# except Exception as e:
-#     st.error(f'Parquet not rechable: {e}')
+try:
+    st.write("PARQ_BASE →", PARQ_BASE)
+    st.write(con.execute(f"SELECT COUNT(*) n FROM read_parquet('{PARQ_BASE}/dim_routes.parquet')").fetchdf())
+except Exception as e:
+    st.error(f'Parquet not rechable: {e}')
 
 # ---- set overall parameters
 col0, col1, col2, col3,  = st.columns([1,1,1,1])
@@ -158,7 +158,7 @@ with col3:
     # Discover feeds from Parquet
     feeds = con.execute(f"""
         SELECT DISTINCT feed_id
-        FROM read_parquet('{PARQ_BASE}/dim_routes/*.parquet')
+        FROM read_parquet('{PARQ_BASE}/dim_routes.parquet')
         ORDER BY feed_id
     """).fetchdf()["feed_id"].tolist()
     selected_feeds = st.multiselect("Filter Feeds (all selected by default)", options=feeds, default=feeds)  # default = all
