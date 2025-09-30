@@ -1,0 +1,58 @@
+name: Combine & Publish Parquet (no ingest)
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ main ]
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  combine-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install duckdb zstandard
+
+      - name: Combine per-feed files into single files per table
+        run: |
+          python - <<'PY'
+          import duckdb, os, pathlib, sys
+          tables = ['dim_stops','dim_trips','dim_routes','calendar_base','fact_stop_events']
+          # sanity: make sure the per-feed folders exist
+          missing = [t for t in tables if not pathlib.Path(f'parquet/{t}').exists()]
+          if missing:
+            print("ERROR: Missing per-feed folders:", missing)
+            sys.exit(1)
+
+          os.makedirs('parquet_combined', exist_ok=True)
+          con = duckdb.connect()
+          for tbl in tables:
+            src = f"parquet/{tbl}/*.parquet"
+            dst = f"parquet_combined/{tbl}.parquet"
+            con.execute(f"""
+              COPY (SELECT * FROM read_parquet('{src}'))
+              TO '{dst}' (FORMAT PARQUET, COMPRESSION 'ZSTD')
+            """)
+            print(f"Wrote {dst}")
+          PY
+
+      - name: Upload artifact (Pages content)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: parquet_combined
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4

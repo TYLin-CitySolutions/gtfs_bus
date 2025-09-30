@@ -138,9 +138,12 @@ if "sites" not in st.session_state:
     st.session_state["sites"] = []   # list of dicts: {name, lat, lon, radius_ft}
 
 con = get_con()
-st.write("PARQ_BASE →", PARQ_BASE)
-st.write(con.execute(f"SELECT COUNT(*) n FROM read_parquet('{PARQ_BASE}/dim_routes.parquet')").fetchdf())
-
+try:
+    st.write("PARQ_BASE →", PARQ_BASE)
+    st.write(con.execute(f"SELECT COUNT(*) n FROM read_parquet('{PARQ_BASE}/parquet/dim_routes.parquet')").fetchdf())
+except Exception as e:
+    st.error(f'Parquet not rechable: {e}')
+    
 # ---- set overall parameters
 col0, col1, col2, col3,  = st.columns([1,1,1,1])
 with col0:
