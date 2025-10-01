@@ -292,7 +292,7 @@ if df is not None:
         stops_total = df["stop_id"].nunique()
         buses_total = int(df["buses_scheduled"].sum())
         st.write(f"**Stops found:** {stops_total}  |  **Total buses (sum of rows):** {buses_total}")
-        st.dataframe(df, width='stretch')
+        st.dataframe(df, use_container_width=True)
 
         # Download
         st.download_button(
