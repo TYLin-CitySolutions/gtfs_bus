@@ -93,7 +93,9 @@ def buses_by_stop_route_dir_within_radius(
     SELECT
       r.feed_id,
       r.route_id,
+      t.trip_headsign,
       t.direction_id,
+      f.service_id,
       s.stop_id,
       s.stop_name,
       s.lat  AS stop_lat,
@@ -115,8 +117,8 @@ def buses_by_stop_route_dir_within_radius(
         (SELECT e FROM win) < (SELECT s FROM win)   -- midnight wrap
         AND (f.arrival_sec >= (SELECT s FROM win) OR f.arrival_sec <= (SELECT e FROM win))
       )
-    GROUP BY r.feed_id, r.route_id, t.direction_id, s.stop_id, s.stop_name, s.lat, s.lon
-    ORDER BY s.stop_name, r.feed_id, r.route_id, t.direction_id;
+    GROUP BY r.feed_id, r.route_id, t.direction_id, t.trip_headsign, s.stop_id, s.stop_name, s.lat, s.lon, f.service_id
+    ORDER BY s.stop_name, r.feed_id, r.route_id, t.direction_id, f.service_id;
     """
 
     params = []
@@ -139,11 +141,11 @@ if "sites" not in st.session_state:
     st.session_state["sites"] = []   # list of dicts: {name, lat, lon, radius_ft}
 
 con = get_con()
-try:
-    st.write("PARQ_BASE →", PARQ_BASE)
-    st.write(con.execute(f"SELECT COUNT(*) n FROM read_parquet('{PARQ_BASE}/dim_routes.parquet')").fetchdf())
-except Exception as e:
-    st.error(f'Parquet not rechable: {e}')
+# try:
+#     st.write("PARQ_BASE →", PARQ_BASE)
+#     st.write(con.execute(f"SELECT COUNT(*) n FROM read_parquet('{PARQ_BASE}/dim_routes.parquet')").fetchdf())
+# except Exception as e:
+#     st.error(f'Parquet not rechable: {e}')
 
 # ---- set overall parameters
 col0, col1, col2, col3,  = st.columns([1,1,1,1])
@@ -276,7 +278,7 @@ if st.button("Run query"):
             selected_feeds=selected_feeds,
             con=con,
         )
-        df_site.insert(0, "site", s["name"])  # tag rows by site
+        df_site.insert(0, "Intersection", s["name"])  # tag rows by site
         frames.append(df_site)
     st.session_state["result_df"] = pd.concat(frames, ignore_index=True) if frames else None
 
@@ -306,7 +308,7 @@ if df is not None:
         # draw result stops on a separate map
         st.markdown("**Stops within radius (with total buses in window):**")
         # aggregate to one marker per stop (sum across routes/directions)
-        stops_markers = (df.groupby(['site',"stop_id","stop_name","stop_lat","stop_lon"], as_index=False)
+        stops_markers = (df.groupby(['Intersection',"stop_id","stop_name","stop_lat","stop_lon"], as_index=False)
                            ["buses_scheduled"].sum()
                         )
         m2 = folium.Map(
@@ -324,7 +326,7 @@ if df is not None:
                     f"<b>{row.stop_name}</b><br/>Stop ID: {row.stop_id}<br/>Buses in window: {int(row.buses_scheduled)}",
                     max_width=250
                 ),
-                tooltip=f"{row.site}: {row.stop_name} ({row.stop_id})", 
+                tooltip=f"{row.Intersection}: {row.stop_name} ({row.stop_id})", 
                 icon=folium.Icon(color="green")
             ).add_to(m2)
 
