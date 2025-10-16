@@ -14,7 +14,7 @@ from streamlit_folium import st_folium
 PARQ_BASE = (
     st.secrets.get("PARQ_BASE_URL")
     or os.getenv("PARQ_BASE_URL")
-    or "https://amy-boncelet.github.io/gtfs_bus"
+    or "https://tylin-citysolutions.github.io/gtfs_bus"
     # or Path("parquet").resolve().as_posix()   # local dev default: ./parquet
     # or r'parquet'
 )
