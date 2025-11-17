@@ -1,9 +1,13 @@
-import io, zipfile, os, requests, pandas as pd
+import io, zipfile, os, requests, pandas as pd, re
 from pathlib import Path
 import yaml, shutil
 from pyproj import Transformer
 
 OUT = Path("parquet"); OUT.mkdir(exist_ok=True, parents=True)
+
+def _safe_name(s: str) -> str:
+    # make feed_id safe for filenames
+    return re.sub(r'[^A-Za-z0-9._-]+', '_', str(s)).strip('_')
 
 def to_sec(hms: str) -> int:
     h, m, s = (list(map(int, (hms+":00").split(":")[:3])))
@@ -42,17 +46,23 @@ def load_gtfs_tables(zip_bytes: bytes) -> dict[str, pd.DataFrame]:
         tables["calendar_dates"] = read("calendar_dates.txt")
     return tables
 
+def _atomic_write_parquet(df: pd.DataFrame, dst: Path):
+    '''write new data to temp file, then replace over old file
+    safer to prevent partial/corrupt files if a write fails'''
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dst.with_suffix(dst.suffix + ".tmp")
+    df.to_parquet(tmp, engine="pyarrow", compression="zstd", index=False)
+    os.replace(tmp, dst)  # atomic on same filesystem
+
 def build_one(feed_id: str, t: dict[str, pd.DataFrame]):
-    OUT.mkdir(parents=True, exist_ok=True)
-    for sub in ["dim_stops","dim_trips","dim_routes","calendar_base","fact_stop_events"]:
-        (OUT / sub).mkdir(parents=True, exist_ok=True)
+    feed_id = _safe_name(feed_id) # clean name check
 
     # --- stops (lat/lon + x2263/y2263 for 250-ft math) ---
     stops = (t["stops"]
              .rename(columns={"stop_lat":"lat","stop_lon":"lon"})
              .assign(feed_id=feed_id)
     )
-        # ensure same datatype for each feed
+    # normalize columns (ensure same datatype for each feed)
     if "stop_desc" in stops.columns:
         stops["stop_desc"] = stops["stop_desc"].astype(str)
     STOP_COLS = ["stop_id","stop_name","stop_desc","lat","lon",'location_type',"parent_station","zone_id","feed_id"]
@@ -85,18 +95,18 @@ def build_one(feed_id: str, t: dict[str, pd.DataFrame]):
               .assign(feed_id=feed_id))
 
     # --- write ONE parquet per feed per table ---
-    stops.to_parquet(OUT / f"dim_stops/{feed_id}.parquet", engine="pyarrow", compression="zstd", index=False)
-    trips.to_parquet(OUT / f"dim_trips/{feed_id}.parquet", engine="pyarrow", compression="zstd", index=False)
-    routes.to_parquet(OUT / f"dim_routes/{feed_id}.parquet", engine="pyarrow", compression="zstd", index=False)
-    cal.to_parquet(OUT / f"calendar_base/{feed_id}.parquet", engine="pyarrow", compression="zstd", index=False)
-    fact.to_parquet(OUT / f"fact_stop_events/{feed_id}.parquet", engine="pyarrow", compression="zstd", index=False)
+    _atomic_write_parquet(stops, OUT / f"dim_stops/{feed_id}.parquet")
+    _atomic_write_parquet(trips, OUT / f"dim_trips/{feed_id}.parquet")
+    _atomic_write_parquet(routes, OUT / f"dim_routes/{feed_id}.parquet")
+    _atomic_write_parquet(cal, OUT / f"calendar_base/{feed_id}.parquet")
+    _atomic_write_parquet(fact, OUT / f"fact_stop_events/{feed_id}.parquet")
     
 def main():
     cfg = yaml.safe_load(Path("ingest/feeds.yml").read_text())["feeds"]
-    # fresh rebuild, clears subfolders for refresh
-    if (OUT).exists():
-        for sub in ["dim_stops","dim_trips","dim_routes","calendar_base","fact_stop_events"]:
-            shutil.rmtree(OUT/sub, ignore_errors=True)
+    # # fresh rebuild, clears subfolders for refresh
+    # if (OUT).exists():
+    #     for sub in ["dim_stops","dim_trips","dim_routes","calendar_base","fact_stop_events"]:
+    #         shutil.rmtree(OUT/sub, ignore_errors=True)
 
     for feed in cfg:
         zbytes = load_zip_bytes(feed)
