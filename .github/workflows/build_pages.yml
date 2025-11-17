@@ -39,14 +39,96 @@ jobs:
 
           os.makedirs('parquet_combined', exist_ok=True)
           con = duckdb.connect()
-          for tbl in tables:
-            src = f"parquet/{tbl}/*.parquet"
-            dst = f"parquet_combined/{tbl}.parquet"
-            con.execute(f"""
-              COPY (SELECT * FROM read_parquet('{src}'))
-              TO '{dst}' (FORMAT PARQUET, COMPRESSION 'ZSTD')
-            """)
-            print(f"Wrote {dst}")
+          # dim_stops
+          con.execute("""
+            COPY (
+              SELECT
+                CAST(stop_id AS VARCHAR) AS stop_id,
+                CAST(stop_name AS VARCHAR) AS stop_name,
+                CAST(stop_desc AS VARCHAR) AS stop_desc,
+                CAST(lat AS DOUBLE) AS lat,
+                CAST(lon AS DOUBLE) AS lon,
+                CAST(location_type AS INTEGER) AS location_type,
+                CAST(parent_station AS VARCHAR) AS parent_station,
+                CAST(zone_id AS VARCHAR) AS zone_id,
+                CAST(feed_id AS VARCHAR) AS feed_id,
+                CAST(x2263 AS DOUBLE) AS x2263,
+                CAST(y2263 AS DOUBLE) AS y2263
+              FROM read_parquet('parquet/dim_stops/*.parquet', union_by_name=true)
+            )
+            TO 'parquet_combined/dim_stops.parquet' (FORMAT PARQUET, COMPRESSION 'ZSTD');
+          """)
+
+          # dim_trips  (trip_id/route_id/service_id MUST be text to avoid numeric coercion)
+          con.execute("""
+            COPY (
+              SELECT
+                CAST(trip_id AS VARCHAR)      AS trip_id,
+                CAST(route_id AS VARCHAR)     AS route_id,
+                CAST(direction_id AS INTEGER) AS direction_id,
+                CAST(service_id AS VARCHAR)   AS service_id,
+                CAST(trip_headsign AS VARCHAR) AS trip_headsign,
+                CAST(feed_id AS VARCHAR)      AS feed_id
+              FROM read_parquet('parquet/dim_trips/*.parquet', union_by_name=true)
+            )
+            TO 'parquet_combined/dim_trips.parquet' (FORMAT PARQUET, COMPRESSION 'ZSTD');
+          """)
+
+          # dim_routes  (route_id and most fields are safest as text)
+          con.execute("""
+            COPY (
+              SELECT
+                CAST(route_id AS VARCHAR)          AS route_id,
+                CAST(agency_id AS VARCHAR)         AS agency_id,
+                CAST(route_short_name AS VARCHAR)  AS route_short_name,
+                CAST(route_long_name AS VARCHAR)   AS route_long_name,
+                CAST(route_desc AS VARCHAR)        AS route_desc,
+                CAST(route_type AS INTEGER)        AS route_type,
+                CAST(route_color AS VARCHAR)       AS route_color,
+                CAST(route_text_color AS VARCHAR)  AS route_text_color,
+                CAST(feed_id AS VARCHAR)           AS feed_id
+              FROM read_parquet('parquet/dim_routes/*.parquet', union_by_name=true)
+            )
+            TO 'parquet_combined/dim_routes.parquet' (FORMAT PARQUET, COMPRESSION 'ZSTD');
+          """)
+
+          # calendar_base
+          con.execute("""
+            COPY (
+              SELECT
+                CAST(service_id AS VARCHAR) AS service_id,
+                CAST(monday AS INTEGER)     AS monday,
+                CAST(tuesday AS INTEGER)    AS tuesday,
+                CAST(wednesday AS INTEGER)  AS wednesday,
+                CAST(thursday AS INTEGER)   AS thursday,
+                CAST(friday AS INTEGER)     AS friday,
+                CAST(saturday AS INTEGER)   AS saturday,
+                CAST(sunday AS INTEGER)     AS sunday,
+                CAST(start_date AS VARCHAR) AS start_date,
+                CAST(end_date AS VARCHAR)   AS end_date,
+                CAST(feed_id AS VARCHAR)    AS feed_id
+              FROM read_parquet('parquet/calendar_base/*.parquet', union_by_name=true)
+            )
+            TO 'parquet_combined/calendar_base.parquet' (FORMAT PARQUET, COMPRESSION 'ZSTD');
+          """)
+
+          # fact_stop_events  (IDs as text; numeric where appropriate)
+          con.execute("""
+            COPY (
+              SELECT
+                CAST(route_id AS VARCHAR)      AS route_id,
+                CAST(direction_id AS INTEGER)  AS direction_id,
+                CAST(service_id AS VARCHAR)    AS service_id,
+                CAST(stop_id AS VARCHAR)       AS stop_id,
+                CAST(stop_sequence AS INTEGER) AS stop_sequence,
+                CAST(arrival_sec AS INTEGER)   AS arrival_sec,
+                CAST(trip_id AS VARCHAR)       AS trip_id,
+                CAST(feed_id AS VARCHAR)       AS feed_id
+              FROM read_parquet('parquet/fact_stop_events/*.parquet', union_by_name=true)
+            )
+            TO 'parquet_combined/fact_stop_events.parquet' (FORMAT PARQUET, COMPRESSION 'ZSTD');
+          """)
+          print("✅ Wrote combined files to parquet_combined/")
           PY
 
       - name: Upload artifact (Pages content)
