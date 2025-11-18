@@ -15,9 +15,24 @@ PARQ_BASE = (
     st.secrets.get("PARQ_BASE_URL")
     or os.getenv("PARQ_BASE_URL")
     or "https://tylin-citysolutions.github.io/gtfs_bus"
-    # or Path("parquet").resolve().as_posix()   # local dev default: ./parquet
-    # or r'parquet'
+    or Path("parquet").resolve().as_posix()   # local dev default: ./parquet
+    or r'parquet'
 )
+
+
+# Top-level helper for other module code (mirrors the in-function helper)
+def parquet_path(table_name: str) -> str:
+    base = PARQ_BASE.rstrip('/')
+    if base.startswith("http"):
+        return f"{base}/{table_name}.parquet"
+    p = Path(base)
+    single = p / f"{table_name}.parquet"
+    folder = p / table_name
+    if single.exists():
+        return single.as_posix()
+    if folder.exists() and any(folder.glob("*.parquet")):
+        return (folder / "*.parquet").as_posix()
+    return single.as_posix()
 
 @st.cache_resource
 def get_con():
@@ -65,14 +80,38 @@ def buses_by_stop_route_dir_within_radius(
         chosen_cte = ""                                  # no CTE
         feed_pred = "TRUE"                               # no filter = all feeds
 
+    # Helper to choose parquet path: prefer combined file when using http or when
+    # a single-file exists; otherwise read all parquet files inside a folder.
+    def _parquet_path(table_name: str) -> str:
+        base = PARQ_BASE.rstrip('/')
+        if base.startswith("http"):
+            return f"{base}/{table_name}.parquet"
+        p = Path(base)
+        single = p / f"{table_name}.parquet"
+        folder = p / table_name
+        if single.exists():
+            return single.as_posix()
+        # if a folder with parquet files exists, use a wildcard to read all
+        if folder.exists() and any(folder.glob("*.parquet")):
+            return (folder / "*.parquet").as_posix()
+        # fallback to single-file path (DuckDB will error if missing)
+        return single.as_posix()
+
+    # resolve parquet paths (single file or folder wildcard)
+    p_dim_stops = _parquet_path('dim_stops')
+    p_dim_trips = _parquet_path('dim_trips')
+    p_dim_routes = _parquet_path('dim_routes')
+    p_calendar_base = _parquet_path('calendar_base')
+    p_fact_stop_events = _parquet_path('fact_stop_events')
+
     sql = f"""
     WITH
     {chosen_cte}
-    dim_stops AS (SELECT * FROM read_parquet('{PARQ_BASE}/dim_stops.parquet')),
-    dim_trips  AS (SELECT * FROM read_parquet('{PARQ_BASE}/dim_trips.parquet')),
-    dim_routes AS (SELECT * FROM read_parquet('{PARQ_BASE}/dim_routes.parquet')),
-    calendar_base AS (SELECT * FROM read_parquet('{PARQ_BASE}/calendar_base.parquet')),
-    fact_stop_events AS (SELECT * FROM read_parquet('{PARQ_BASE}/fact_stop_events.parquet')),
+    dim_stops AS (SELECT * FROM read_parquet('{p_dim_stops}')),
+    dim_trips  AS (SELECT * FROM read_parquet('{p_dim_trips}')),
+    dim_routes AS (SELECT * FROM read_parquet('{p_dim_routes}')),
+    calendar_base AS (SELECT * FROM read_parquet('{p_calendar_base}')),
+    fact_stop_events AS (SELECT * FROM read_parquet('{p_fact_stop_events}')),
     svcs AS (
       SELECT DISTINCT feed_id, service_id
       FROM calendar_base
@@ -143,7 +182,7 @@ if "sites" not in st.session_state:
 con = get_con()
 # try:
 #     st.write("PARQ_BASE →", PARQ_BASE)
-#     st.write(con.execute(f"SELECT COUNT(*) n FROM read_parquet('{PARQ_BASE}/dim_routes.parquet')").fetchdf())
+#     st.write(con.execute(f"SELECT COUNT(*) n FROM read_parquet('{parquet_path('dim_routes')}')").fetchdf())
 # except Exception as e:
 #     st.error(f'Parquet not rechable: {e}')
 
@@ -160,7 +199,7 @@ with col3:
     # Discover feeds from Parquet
     feeds = con.execute(f"""
         SELECT DISTINCT feed_id
-        FROM read_parquet('{PARQ_BASE}/dim_routes.parquet')
+        FROM read_parquet('{parquet_path('dim_routes')}')
         ORDER BY feed_id
     """).fetchdf()["feed_id"].tolist()
     selected_feeds = st.multiselect("Filter Feeds (all selected by default)", options=feeds, default=feeds)  # default = all
