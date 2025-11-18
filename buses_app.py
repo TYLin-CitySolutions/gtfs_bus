@@ -9,6 +9,7 @@ from pathlib import Path
 
 import folium
 from streamlit_folium import st_folium
+from folium.plugins import Geocoder
 
 # read from parquet
 PARQ_BASE = (
@@ -224,6 +225,7 @@ with colA:
         control_scale=True,
         tiles="CartoDB positron",
     )
+    Geocoder(collapsed=True, add_marker=True, position="topleft").add_to(m) # add search to map
     # add previously clicked points in red
     for s in st.session_state["sites"]:
         folium.Marker([s["lat"], s["lon"]], tooltip=s["name"], icon=folium.Icon(color="red")).add_to(m)
