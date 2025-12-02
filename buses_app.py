@@ -162,11 +162,14 @@ def buses_by_stop_route_dir_within_radius(
     """
 
     params = []
+    # 1) If feeds are selected, add one param per "(?)" in chosen_feeds CTE
     if sel:
-        params += sel                                # feeds for chosen_feeds CTE (once)
-        params += [day_type, day_type, day_type]         # 3 day-type placeholders
-        params += [s, e]                   # window
-        params += [x0, x0, y0, y0, int(radius_ft), int(radius_ft)]  # spatial
+        params += sel
+
+    # 2) Always add the rest: day_type, time window, spatial params
+    params += [day_type, day_type, day_type]                # 3 day-type placeholders
+    params += [s, e]                                        # window
+    params += [x0, x0, y0, y0, int(radius_ft), int(radius_ft)]  # spatial
     df = con.execute(sql, params).fetchdf()
 
     return df
@@ -191,6 +194,14 @@ con = get_con()
 col0, col1, col2, col3,  = st.columns([1,1,1,1])
 with col0:
     day_type = st.selectbox("Day type", ["Weekday", "Saturday", "Sunday"], index=0)
+    school_choice = "All"
+    if day_type == "Weekday":
+        school_choice = st.radio(
+            "School day filter",
+            ["All", "School day only (SDon)", "Non-school day only"],
+            index=0,
+            help="Filters Weekday trips using service_id that contains 'SDon'."
+        )
 with col1:
     t_start = st.time_input("Start time", value=time(7,45))
     t_end   = st.time_input("End time", value=time(8,45))  
