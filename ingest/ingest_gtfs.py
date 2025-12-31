@@ -32,18 +32,70 @@ def load_zip_bytes(feed_cfg: dict) -> bytes:
 
 def load_gtfs_tables(zip_bytes: bytes) -> dict[str, pd.DataFrame]:
     z = zipfile.ZipFile(io.BytesIO(zip_bytes))
-    def read(name):
+    def read(name, dtype=None):
         with z.open(name) as f:
-            return pd.read_csv(f)
+            return pd.read_csv(f, dtype=dtype)
+    # Explicit dtypes keep schemas consistent across feeds (IDs often vary)
+    routes_dtype = {
+        "route_id": "string",
+        "agency_id": "string",
+        "route_short_name": "string",
+        "route_long_name": "string",
+        "route_desc": "string",
+        "route_type": "Int64",
+        "route_color": "string",
+        "route_text_color": "string",
+    }
+    trips_dtype = {
+        "route_id": "string",
+        "service_id": "string",
+        "trip_id": "string",
+        "trip_headsign": "string",
+        "direction_id": "Int64",
+    }
+    stops_dtype = {
+        "stop_id": "string",
+        "stop_name": "string",
+        "stop_desc": "string",
+        "stop_lat": "float64",
+        "stop_lon": "float64",
+        "location_type": "Int64",
+        "parent_station": "string",
+        "zone_id": "string",
+    }
+    stop_times_dtype = {
+        "trip_id": "string",
+        "stop_id": "string",
+        "stop_sequence": "Int64",
+        "arrival_time": "string",
+        "departure_time": "string",
+    }
+    calendar_dtype = {
+        "service_id": "string",
+        "monday": "Int64",
+        "tuesday": "Int64",
+        "wednesday": "Int64",
+        "thursday": "Int64",
+        "friday": "Int64",
+        "saturday": "Int64",
+        "sunday": "Int64",
+        "start_date": "string",
+        "end_date": "string",
+    }
+    calendar_dates_dtype = {
+        "service_id": "string",
+        "date": "string",
+        "exception_type": "Int64",
+    }
     tables = {
-        "routes": read("routes.txt"),
-        "trips": read("trips.txt"),
-        "stops": read("stops.txt"),
-        "stop_times": read("stop_times.txt"),
-        "calendar": read("calendar.txt"),
+        "routes": read("routes.txt", dtype=routes_dtype),
+        "trips": read("trips.txt", dtype=trips_dtype),
+        "stops": read("stops.txt", dtype=stops_dtype),
+        "stop_times": read("stop_times.txt", dtype=stop_times_dtype),
+        "calendar": read("calendar.txt", dtype=calendar_dtype),
     }
     if "calendar_dates.txt" in z.namelist():
-        tables["calendar_dates"] = read("calendar_dates.txt")
+        tables["calendar_dates"] = read("calendar_dates.txt", dtype=calendar_dates_dtype)
     return tables
 
 def _atomic_write_parquet(df: pd.DataFrame, dst: Path):

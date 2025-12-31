@@ -1,22 +1,22 @@
 feeds:
-  # - id: mta-nyct-bus-manhattan
-  #   source: file
-  #   url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/gtfs_bus_data/gtfs_m.zip"
-  # - id: mta-nyct-bus-brooklyn
-  #   source: file
-  #   url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/gtfs_bus_data/gtfs_b.zip"
-  # - id: mta-nyct-bus-queens
-  #   source: file
-  #   url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/gtfs_bus_data/gtfs_q.zip"
-  # - id: mta-nyct-bus-bronx
-  #   source: file
-  #   url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/gtfs_bus_data/gtfs_bx.zip"
-  # - id: mta-nyct-bus-si
-  #   source: file
-  #   url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/gtfs_bus_data/gtfs_si.zip"
-  # - id: mta-nyct-bus-busco
-  #   source: file
-  #   url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/gtfs_bus_data/gtfs_busco.zip"
+  - id: mta-nyct-bus-manhattan
+    source: file
+    url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/github/gtfs_bus/data/gtfs_raw_data/gtfs_m.zip"
+  - id: mta-nyct-bus-brooklyn
+    source: file
+    url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/github/gtfs_bus/data/gtfs_raw_data/gtfs_b.zip"
+  - id: mta-nyct-bus-queens
+    source: file
+    url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/github/gtfs_bus/data/gtfs_raw_data/gtfs_q.zip"
+  - id: mta-nyct-bus-bronx
+    source: file
+    url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/github/gtfs_bus/data/gtfs_raw_data/gtfs_bx.zip"
+  - id: mta-nyct-bus-si
+    source: file
+    url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/github/gtfs_bus/data/gtfs_raw_data/gtfs_si.zip"
+  - id: mta-nyct-bus-busco
+    source: file
+    url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/github/gtfs_bus/data/gtfs_raw_data/gtfs_busco.zip"
   - id: miami-dade
     source: file
-    url: "C:/Users/abonc/Downloads/gtfs-miami.zip"
+    url: "C:/Users/amy.boncelet/OneDrive - Global Infrastructure/_Projects/github/gtfs_bus/data/gtfs_raw_data/gtfs-miami.zip"
