@@ -7,6 +7,10 @@ GTFS static ingestion + a Streamlit dashboard that counts scheduled bus trips ne
 - Publishes combined Parquet tables to GitHub Pages via a workflow.
 - Serves a Streamlit app that queries the Parquet tables with DuckDB and maps results.
 
+Currently contains NYC MTA and Miami data:
+- NYC MTA: https://www.mta.info/developers (schedules udpated quarterly)
+- Miami-Dade: https://www.miamidade.gov/global/transportation/open-data-feeds.page
+
 ## Data flow (high level)
 1) Download GTFS static zip(s).
 2) Update `ingest/feeds.yml` with feed `id` and source location.
