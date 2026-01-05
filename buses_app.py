@@ -6,6 +6,7 @@ from datetime import time
 from pyproj import Transformer
 import os
 from pathlib import Path
+from shapely.geometry import Point, LineString
 
 import folium
 from streamlit_folium import st_folium
@@ -50,6 +51,60 @@ def to_sec(hms: str) -> int:
     hh, mm, *rest = hms.split(":")
     ss = int(rest[0]) if rest else 0
     return int(hh) * 3600 + int(mm) * 60 + ss
+
+def _stop_side_by_segment_distance(
+    stop_ctx: pd.DataFrame,
+    intersection_lat: float,
+    intersection_lon: float,
+) -> pd.DataFrame:
+    """
+    Classify near/far side using distance from intersection to
+    prev→current vs current→next segments.
+    """
+    keys = ["feed_id", "route_id", "direction_id", "service_id", "stop_id"]
+    if stop_ctx.empty:
+        return pd.DataFrame(columns=keys + ["stop_side"])
+
+    transformer = Transformer.from_crs("EPSG:4326", "EPSG:2263", always_xy=True)
+    ix, iy = transformer.transform(intersection_lon, intersection_lat)
+    intersection_point = Point(ix, iy)
+
+    def _calc_side(row):
+        dist_prev_current = None
+        dist_current_next = None
+
+        if pd.notna(row["prev_lat"]) and pd.notna(row["prev_lon"]):
+            prev_x, prev_y = transformer.transform(row["prev_lon"], row["prev_lat"])
+            cur_x, cur_y = transformer.transform(row["stop_lon"], row["stop_lat"])
+            prev_current_line = LineString([(prev_x, prev_y), (cur_x, cur_y)])
+            dist_prev_current = intersection_point.distance(prev_current_line)
+
+        if pd.notna(row["next_lat"]) and pd.notna(row["next_lon"]):
+            cur_x, cur_y = transformer.transform(row["stop_lon"], row["stop_lat"])
+            next_x, next_y = transformer.transform(row["next_lon"], row["next_lat"])
+            current_next_line = LineString([(cur_x, cur_y), (next_x, next_y)])
+            dist_current_next = intersection_point.distance(current_next_line)
+
+        if dist_prev_current is not None and dist_current_next is not None:
+            return "far_side" if dist_prev_current < dist_current_next else "near_side"
+        return "unknown"
+
+    stop_ctx = stop_ctx.copy()
+    # pick the most common (prev_stop_id, next_stop_id) pair per stop key
+    pair_cols = ["prev_stop_id", "next_stop_id"]
+    pair_counts = (
+        stop_ctx.groupby(keys + pair_cols, dropna=False)
+        .size()
+        .reset_index(name="pair_count")
+    )
+    idx = pair_counts.groupby(keys)["pair_count"].idxmax()
+    canonical_pairs = pair_counts.loc[idx, keys + pair_cols]
+
+    canonical = stop_ctx.merge(canonical_pairs, on=keys + pair_cols, how="inner")
+    canonical = canonical.drop_duplicates(subset=keys)
+    canonical["stop_side"] = canonical.apply(_calc_side, axis=1)
+
+    return canonical[keys + ["stop_side"]]
 
 def buses_by_stop_route_dir_within_radius(
     lon: float,
@@ -171,6 +226,79 @@ def buses_by_stop_route_dir_within_radius(
     params += [s, e]                                        # window
     params += [x0, x0, y0, y0, int(radius_ft), int(radius_ft)]  # spatial
     df = con.execute(sql, params).fetchdf()
+
+    if df.empty:
+        return df
+
+    stop_ctx_sql = f"""
+    WITH
+    {chosen_cte}
+    dim_stops AS (SELECT * FROM read_parquet('{p_dim_stops}')),
+    calendar_base AS (SELECT * FROM read_parquet('{p_calendar_base}')),
+    fact_stop_events AS (SELECT * FROM read_parquet('{p_fact_stop_events}')),
+    svcs AS (
+      SELECT DISTINCT feed_id, service_id
+      FROM calendar_base
+      WHERE {feed_pred}
+      AND (
+        (? = 'Weekday'  AND (monday=1 OR tuesday=1 OR wednesday=1 OR thursday=1 OR friday=1))
+        OR (? = 'Saturday' AND saturday=1)
+        OR (? = 'Sunday'   AND sunday=1)
+        )
+    ),
+    win AS (SELECT ?::INTEGER AS s, ?::INTEGER AS e),
+    near_stops AS (
+      SELECT feed_id, stop_id
+      FROM dim_stops
+      WHERE {feed_pred}
+      AND ((x2263 - ?)*(x2263 - ?) + (y2263 - ?)*(y2263 - ?)) <= ?*?
+    ),
+    trips_in_window AS (
+      SELECT DISTINCT f.feed_id, f.trip_id
+      FROM fact_stop_events f
+      JOIN svcs v ON f.feed_id = v.feed_id AND f.service_id = v.service_id
+      CROSS JOIN win
+      WHERE {feed_pred}
+      AND (
+        (SELECT e FROM win) >= (SELECT s FROM win)
+        AND f.arrival_sec BETWEEN (SELECT s FROM win) AND (SELECT e FROM win)
+        OR
+        (SELECT e FROM win) < (SELECT s FROM win)
+        AND (f.arrival_sec >= (SELECT s FROM win) OR f.arrival_sec <= (SELECT e FROM win))
+      )
+    ),
+    events AS (
+      SELECT
+        f.feed_id, f.route_id, f.direction_id, f.service_id, f.trip_id, f.stop_id, f.stop_sequence,
+        LAG(f.stop_id)  OVER (PARTITION BY f.feed_id, f.trip_id ORDER BY f.stop_sequence) AS prev_stop_id,
+        LEAD(f.stop_id) OVER (PARTITION BY f.feed_id, f.trip_id ORDER BY f.stop_sequence) AS next_stop_id
+      FROM fact_stop_events f
+      JOIN trips_in_window t ON f.feed_id = t.feed_id AND f.trip_id = t.trip_id
+      WHERE {feed_pred}
+    )
+    SELECT
+      e.feed_id, e.route_id, e.direction_id, e.service_id, e.stop_id,
+      e.prev_stop_id, e.next_stop_id,
+      s.lat AS stop_lat, s.lon AS stop_lon,
+      p.lat AS prev_lat, p.lon AS prev_lon,
+      n.lat AS next_lat, n.lon AS next_lon
+    FROM events e
+    JOIN dim_stops s ON e.feed_id = s.feed_id AND e.stop_id = s.stop_id
+    LEFT JOIN dim_stops p ON e.feed_id = p.feed_id AND e.prev_stop_id = p.stop_id
+    LEFT JOIN dim_stops n ON e.feed_id = n.feed_id AND e.next_stop_id = n.stop_id
+    JOIN near_stops ns ON e.feed_id = ns.feed_id AND e.stop_id = ns.stop_id;
+    """
+
+    stop_ctx = con.execute(stop_ctx_sql, params).fetchdf()
+    if not stop_ctx.empty:
+        stop_side = _stop_side_by_segment_distance(stop_ctx, lat, lon)
+        df = df.merge(
+            stop_side,
+            on=["feed_id", "route_id", "direction_id", "service_id", "stop_id"],
+            how="left",
+        )
+    else:
+        df["stop_side"] = "unknown"
 
     return df
 
