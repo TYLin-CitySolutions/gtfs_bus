@@ -132,9 +132,15 @@ def buses_by_stop_route_dir_within_radius(
         values = ",".join(["(?)"] * len(sel))           # -> "(?),(?),(?)"
         chosen_cte = f"chosen_feeds(feed_id) AS (VALUES {values}),"
         feed_pred = "feed_id IN (SELECT feed_id FROM chosen_feeds)"
+        feed_pred_cal = "calendar_base.feed_id IN (SELECT feed_id FROM chosen_feeds)"
+        feed_pred_stops = "dim_stops.feed_id IN (SELECT feed_id FROM chosen_feeds)"
+        feed_pred_f = "f.feed_id IN (SELECT feed_id FROM chosen_feeds)"
     else:
         chosen_cte = ""                                  # no CTE
         feed_pred = "TRUE"                               # no filter = all feeds
+        feed_pred_cal = "TRUE"
+        feed_pred_stops = "TRUE"
+        feed_pred_f = "TRUE"
 
     # Helper to choose parquet path: prefer combined file when using http or when
     # a single-file exists; otherwise read all parquet files inside a folder.
@@ -237,9 +243,9 @@ def buses_by_stop_route_dir_within_radius(
     calendar_base AS (SELECT * FROM read_parquet('{p_calendar_base}')),
     fact_stop_events AS (SELECT * FROM read_parquet('{p_fact_stop_events}')),
     svcs AS (
-      SELECT DISTINCT feed_id, service_id
+      SELECT DISTINCT calendar_base.feed_id, service_id
       FROM calendar_base
-      WHERE {feed_pred}
+      WHERE {feed_pred_cal}
       AND (
         (? = 'Weekday'  AND (monday=1 OR tuesday=1 OR wednesday=1 OR thursday=1 OR friday=1))
         OR (? = 'Saturday' AND saturday=1)
@@ -248,9 +254,9 @@ def buses_by_stop_route_dir_within_radius(
     ),
     win AS (SELECT ?::INTEGER AS s, ?::INTEGER AS e),
     near_stops AS (
-      SELECT feed_id, stop_id
+      SELECT dim_stops.feed_id, stop_id
       FROM dim_stops
-      WHERE {feed_pred}
+      WHERE {feed_pred_stops}
       AND ((x2263 - ?)*(x2263 - ?) + (y2263 - ?)*(y2263 - ?)) <= ?*?
     ),
     trips_in_window AS (
@@ -258,7 +264,7 @@ def buses_by_stop_route_dir_within_radius(
       FROM fact_stop_events f
       JOIN svcs v ON f.feed_id = v.feed_id AND f.service_id = v.service_id
       CROSS JOIN win
-      WHERE {feed_pred}
+      WHERE {feed_pred_f}
       AND (
         (SELECT e FROM win) >= (SELECT s FROM win)
         AND f.arrival_sec BETWEEN (SELECT s FROM win) AND (SELECT e FROM win)
@@ -269,12 +275,13 @@ def buses_by_stop_route_dir_within_radius(
     ),
     events AS (
       SELECT
-        f.feed_id, f.route_id, f.direction_id, f.service_id, f.trip_id, f.stop_id, f.stop_sequence,
+        f.feed_id,
+        f.route_id, f.direction_id, f.service_id, f.trip_id, f.stop_id, f.stop_sequence,
         LAG(f.stop_id)  OVER (PARTITION BY f.feed_id, f.trip_id ORDER BY f.stop_sequence) AS prev_stop_id,
         LEAD(f.stop_id) OVER (PARTITION BY f.feed_id, f.trip_id ORDER BY f.stop_sequence) AS next_stop_id
       FROM fact_stop_events f
       JOIN trips_in_window t ON f.feed_id = t.feed_id AND f.trip_id = t.trip_id
-      WHERE {feed_pred}
+      WHERE {feed_pred_f}
     )
     SELECT
       e.feed_id, e.route_id, e.direction_id, e.service_id, e.stop_id,
@@ -472,12 +479,28 @@ if df is not None:
         stops_total = df["stop_id"].nunique()
         buses_total = int(df["buses_scheduled"].sum())
         st.write(f"**Stops found:** {stops_total}  |  **Total buses (sum of rows):** {buses_total}")
-        st.dataframe(df, use_container_width=True)
+        
+        df_edit = df.copy()
+        if 'delete' not in df_edit.columns:
+            df_edit['delete'] = False
+
+            edited = st.data_editor(
+                            df_edit, 
+                            hide_index=True, 
+                            column_config={'delete':st.column_config.CheckboxColumn("Delete?")},
+                            key='results_editor')
+        if st.button('Update results'):
+            st.session_state["result_df"] = (
+                edited[~edited["delete"]].drop(columns=["delete"], errors="ignore")
+            )
+            st.session_state.show_delete = False
+            st.rerun()
 
         # Download
+        df_download = st.session_state["result_df"]
         st.download_button(
             "Download CSV",
-            df.to_csv(index=False),
+            df_download.to_csv(index=False),
             file_name="bus_counts_by_stop_route_direction.csv",
             mime="text/csv"
         )
