@@ -2,6 +2,8 @@
 
 GTFS static ingestion + a Streamlit dashboard that counts scheduled bus trips near selected stops in a time window.
 
+Last updated: May 5, 2026
+
 ## What it does
 - Ingests one or more GTFS static zip files into per-feed Parquet tables.
 - Publishes combined Parquet tables to GitHub Pages via a workflow.

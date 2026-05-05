@@ -2,11 +2,12 @@
 import duckdb
 import pandas as pd
 import streamlit as st
-from datetime import time
+from datetime import time, datetime, timezone
 from pyproj import Transformer
 import os
 from pathlib import Path
 from shapely.geometry import Point, LineString
+import subprocess
 
 import folium
 from streamlit_folium import st_folium
@@ -47,6 +48,22 @@ def get_con():
     return con
 
 # ---------- helpers ----------
+def get_git_commit_info(repo_dir: str | Path = ".") -> tuple[str, str]:
+    """Returns (latest commit date) from local git history."""
+    repo_dir = Path(repo_dir)
+
+    try:
+        iso_date = subprocess.check_output(
+            ["git", "log", "-1", "--format=%cI"],
+            cwd=repo_dir,
+            text=True,
+        ).strip()
+
+        dt = datetime.fromisoformat(iso_date.replace("Z", "+00:00")).astimezone()
+        return dt.strftime("%Y-%m-%d %I:%M %p %Z")
+    except Exception:
+        return "Unknown (git unavailable)", "unknown"
+
 def to_sec(hms: str) -> int:
     hh, mm, *rest = hms.split(":")
     ss = int(rest[0]) if rest else 0
@@ -319,6 +336,34 @@ if "sites" not in st.session_state:
     st.session_state["sites"] = []   # list of dicts: {name, lat, lon, radius_ft}
 
 con = get_con()
+
+# get latest update dates from git and gtfs feeds
+commit_date = get_git_commit_info(".")
+cal_data = con.execute(f"""
+            SELECT
+                feed_id,
+                start_date,
+                end_date
+            FROM read_parquet('{parquet_path('calendar_base')}')
+        """).fetchdf()
+
+val_per = (
+        cal_data.groupby("feed_id", as_index=False)
+          .agg(start_date=("start_date", "min"),
+               end_date=("end_date", "max"))
+          .sort_values("feed_id")
+    )
+val_per["start_date"] = pd.to_datetime(val_per["start_date"]).dt.date
+val_per["end_date"] = pd.to_datetime(val_per["end_date"]).dt.date
+
+col0, col1, col2, col3,  = st.columns([1,1,1,1])
+with col3:
+    st.caption(f"App updated: {commit_date}")
+    st.dataframe(
+        val_per,
+        use_container_width=True,
+        hide_index=True,
+    )
 # try:
 #     st.write("PARQ_BASE →", PARQ_BASE)
 #     st.write(con.execute(f"SELECT COUNT(*) n FROM read_parquet('{parquet_path('dim_routes')}')").fetchdf())
