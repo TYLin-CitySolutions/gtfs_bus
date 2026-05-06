@@ -330,6 +330,9 @@ def buses_by_stop_route_dir_within_radius(
 st.set_page_config(page_title="Bus Counter", layout="wide")
 st.title("Bus Counter — stops within radius by route & direction")
 
+commit_date = get_git_commit_info(".")
+st.caption(f"App updated: {commit_date}")
+
 if "result_df" not in st.session_state:
     st.session_state["result_df"] = None
 if "sites" not in st.session_state:
@@ -338,7 +341,7 @@ if "sites" not in st.session_state:
 con = get_con()
 
 # get latest update dates from git and gtfs feeds
-commit_date = get_git_commit_info(".")
+
 cal_data = con.execute(f"""
             SELECT
                 feed_id,
@@ -356,14 +359,8 @@ val_per = (
 val_per["start_date"] = pd.to_datetime(val_per["start_date"]).dt.date
 val_per["end_date"] = pd.to_datetime(val_per["end_date"]).dt.date
 
-col0, col1, col2, col3,  = st.columns([1,1,1,1])
-with col3:
-    st.caption(f"App updated: {commit_date}")
-    st.dataframe(
-        val_per,
-        use_container_width=True,
-        hide_index=True,
-    )
+# col0, col1, col2, col3,  = st.columns([1,1,1,1])
+
 # try:
 #     st.write("PARQ_BASE →", PARQ_BASE)
 #     st.write(con.execute(f"SELECT COUNT(*) n FROM read_parquet('{parquet_path('dim_routes')}')").fetchdf())
@@ -371,13 +368,13 @@ with col3:
 #     st.error(f'Parquet not rechable: {e}')
 
 # ---- set overall parameters
-col0, col1, col2, col3,  = st.columns([1,1,1,1])
+col0, col1, col2, col3, col4  = st.columns([1,1,1,1,1])
 with col0:
     day_type = st.selectbox("Day type", ["Weekday", "Saturday", "Sunday"], index=0)
     school_choice = "All"
     if day_type == "Weekday":
         school_choice = st.radio(
-            "School day filter",
+            "School day filter [IN PROGRESS]",
             ["All", "School day only (SDon)", "Non-school day only"],
             index=0,
             help="Filters Weekday trips using service_id that contains 'SDon'."
@@ -395,6 +392,13 @@ with col3:
         ORDER BY feed_id
     """).fetchdf()["feed_id"].tolist()
     selected_feeds = st.multiselect("Filter Feeds (all selected by default)", options=feeds, default=feeds)  # default = all
+with col4:
+    st.write('Date ranges of feeds. Contact team for updated data when needed')
+    st.dataframe(
+        val_per,
+        use_container_width=True,
+        hide_index=True,
+    )
 
 # ----- click multiple sites
 st.markdown("**1) Click on the map** to select intersection. **2) Update Site Label** **3) Click Add Site** 4) When done, **Press ‘Run query’.**")
